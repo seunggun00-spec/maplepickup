@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>메이플스토리 직업 뽑기</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .main-container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            margin-bottom: 25px;
+            position: sticky;
+            top: 20px;
+            z-index: 10;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin: 0 0 20px 0;
+        }
+        .result-box {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ff9900;
+            margin: 20px 0 10px 0;
+            min-height: 45px;
+        }
+        
+        /* DPS 정보 디스플레이 카드 */
+        .dps-card {
+            background: #fdfaf4;
+            border: 1px dashed #ff9900;
+            border-radius: 10px;
+            padding: 14px;
+            margin: 15px auto;
+            max-width: 320px;
+            font-size: 15px;
+            color: #444;
+            display: none;
+        }
+        .dps-card.unrated {
+            background: #f5f5f5;
+            border: 1px dashed #999;
+        }
+        .dps-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: white;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+        .dps-ratio {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .draw-btn {
+            background-color: #ff9900;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .draw-btn:hover {
+            background-color: #e08500;
+        }
+        .draw-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* 직업 리스트 관리 박스 */
+        .management-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        h2 {
+            font-size: 18px;
+            color: #555;
+            margin-top: 0;
+            border-bottom: 2px solid #ff9900;
+            padding-bottom: 8px;
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 15px 0 8px 0;
+        }
+        .group-title {
+            font-weight: bold;
+            color: #444;
+            cursor: pointer;
+            flex-grow: 1; /* 글자 영역을 채워서 클릭하기 편하게 */
+        }
+        .group-header:hover {
+            background: #f0f1f4;
+        }
+        .bulk-btn {
+            font-size: 12px;
+            color: #ff9900;
+            background: none;
+            border: 1px solid #ff9900;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .bulk-btn:hover {
+            background: #ff9900;
+            color: white;
+        }
+        .job-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 5px;
+        }
+        .job-item {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .job-item input {
+            margin-right: 6px;
+        }
+        .excluded {
+            color: #bbb;
+            text-decoration: line-through;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <h1>메이플 직업 무작위 뽑기</h1>
+    <div class="result-box" id="result">? ? ?</div>
+    <div class="dps-card" id="dpsCard"></div>
+    <button class="draw-btn" id="drawBtn" onclick="pickJob()">직업 뽑기</button>
+</div>
+
+<div class="management-container">
+    <h2>포함할 직업 선택 (직군별 일괄 제어 가능)</h2>
+    <div id="jobSettings"></div>
+</div>
+
+<script>
+    const dpsData = {
+        "카데나": { rank: 1, ratio: "123.62%", bg: "#ff4d4d" },
+        "제로": { rank: 2, ratio: "111.84%", bg: "#ff6666" },
+        "아크": { rank: 3, ratio: "111.67%", bg: "#ff6666" },
+        "제논": { rank: 4, ratio: "111.25%", bg: "#ff6666" },
+        "칼리": { rank: 5, ratio: "109.85%", bg: "#ff8080" },
+        "아크메이지(불,독)": { rank: 6, ratio: "107.59%", bg: "#ff8080" },
+        "블래스터": { rank: 7, ratio: "107.15%", bg: "#ff8080" },
+        "카인": { rank: 8, ratio: "105.82%", bg: "#ff9999" },
+        "아델": { rank: 9, ratio: "104.34%", bg: "#ff9999" },
+        "호영": { rank: 10, ratio: "103.02%", bg: "#ff9999" },
+        "보우마스터": { rank: 11, ratio: "102.74%", bg: "#ffb3b3" },
+        "데몬어벤져": { rank: 12, ratio: "102.68%", bg: "#ffb3b3" },
+        "키네시스": { rank: 13, ratio: "102.51%", bg: "#ffb3b3" },
+        "플레임위자드": { rank: 14, ratio: "102.47%", bg: "#ffb3b3" },
+        "스트라이커": { rank: 15, ratio: "101.70%", bg: "#ffcccc" },
+        "섀도어": { rank: 16, ratio: "101.61%", bg: "#ffcccc" },
+        "아크메이지(썬,콜)": { rank: 17, ratio: "101.43%", bg: "#ffcccc" },
+        "루미너스": { rank: 18, ratio: "101.30%", bg: "#ffcccc" },
+        "일리움": { rank: 19, ratio: "101.30%", bg: "#ffcccc" },
+        "나이트워커": { rank: 20, ratio: "100.90%", bg: "#ffe6e6" },
+        "듀얼블레이드": { rank: 21, ratio: "100.71%", bg: "#ffe6e6" },
+        "라라": { rank: 22, ratio: "100.45%", bg: "#ffe6e6" },
+        "아란": { rank: 23, ratio: "100.44%", bg: "#ffe6e6" },
+        "바이퍼": { rank: 24, ratio: "100.00%", bg: "#f0f0f0" },
+        "윈드브레이커": { rank: 25, ratio: "99.26%", bg: "#e6f2ff" },
+        "히어로": { rank: 26, ratio: "98.60%", bg: "#e6f2ff" },
+        "카이저": { rank: 27, ratio: "98.50%", bg: "#e6f2ff" },
+        "데몬슬레이어": { rank: 28, ratio: "98.44%", bg: "#e6f2ff" },
+        "팬텀": { rank: 29, ratio: "98.44%", bg: "#e6f2ff" },
+        "패스파인더": { rank: 30, ratio: "98.39%", bg: "#d1e8ff" },
+        "메르세데스": { rank: 31, ratio: "97.70%", bg: "#d1e8ff" },
+        "에반": { rank: 32, ratio: "97.56%", bg: "#d1e8ff" },
+        "와일드헌터": { rank: 33, ratio: "97.51%", bg: "#d1e8ff" },
+        "캐논슈터": { rank: 34, ratio: "97.30%", bg: "#b3d7ff" },
+        "다크나이트": { rank: 35, ratio: "96.58%", bg: "#b3d7ff" },
+        "렌": { rank: 36, ratio: "96.45%", bg: "#b3d7ff" },
+        "신궁": { rank: 37, ratio: "96.03%", bg: "#99ccff" },
+        "비숍": { rank: 38, ratio: "95.86%", bg: "#99ccff" },
+        "소울마스터": { rank: 39, ratio: "95.83%", bg: "#99ccff" },
+        "팔라딘": { rank: 40, ratio: "95.41%", bg: "#80c0ff" },
+        "나이트로드": { rank: 41, ratio: "95.02%", bg: "#80c0ff" },
+        "캡틴": { rank: 42, ratio: "95.01%", bg: "#80c0ff" },
+        "엔젤릭버스터": { rank: 43, ratio: "94.70%", bg: "#66b3ff" },
+        "배틀메이지": { rank: 44, ratio: "94.62%", bg: "#66b3ff" },
+        "은월": { rank: 45, ratio: "93.60%", bg: "#4da6ff" },
+        "미하일": { rank: 46, ratio: "90.73%", bg: "#3399ff" },
+        "메카닉": { rank: 47, ratio: "90.53%", bg: "#1a8cff" },
+        "레테": { rank: "미산정", ratio: "-", bg: "#999999", unrated: true }
+    };
+
+    const jobGroups = {
+        "모험가": ["히어로", "팔라딘", "다크나이트", "아크메이지(불,독)", "아크메이지(썬,콜)", "비숍", "보우마스터", "신궁", "패스파인더", "나이트로드", "섀도어", "듀얼블레이드", "바이퍼", "캡틴", "캐논슈터"],
+        "시그너스 기사단": ["소울마스터", "플레임위자드", "윈드브레이커", "나이트워커", "스트라이커", "미하일"],
+        "레지스탕스 / 영웅": ["블래스터", "배틀메이지", "와일드헌터", "메카닉", "제논", "아란", "에반", "루미너스", "메르세데스", "팬텀", "은월"],
+        "노바 / 레프 / 아니마": ["카이저", "카데나", "엔젤릭버스터", "카인", "아델", "일리움", "아크", "칼리", "호영", "라라"],
+        "마스테리아 / 기타": ["데몬슬레이어", "데몬어벤져", "레테", "렌"],
+        "초월자 / 이계": ["제로", "키네시스"]
+    };
+
+    let activeJobs = [];
+
+    function initSettings() {
+        const settingsContainer = document.getElementById('jobSettings');
+        
+        for (const [groupName, jobs] of Object.entries(jobGroups)) {
+            const groupDiv = document.createElement('div');
+            
+            // 헤더 영역 생성 (제목 + 버튼들)
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'group-header';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'group-title';
+            titleDiv.innerHTML = `<span>${groupName} (${jobs.length}종)</span> <span class="arrow">▼</span>`;
+            
+            // 버튼 묶음용 div
+            const btnContainer = document.createElement('div');
+            
+            const checkAllBtn = document.createElement('button');
+            checkAllBtn.className = 'bulk-btn';
+            checkAllBtn.innerText = '전체 선택';
+            
+            const uncheckAllBtn = document.createElement('button');
+            uncheckAllBtn.className = 'bulk-btn';
+            uncheckAllBtn.innerText = '전체 해제';
+            
+            btnContainer.appendChild(checkAllBtn);
+            btnContainer.appendChild(uncheckAllBtn);
+            headerDiv.appendChild(titleDiv);
+            headerDiv.appendChild(btnContainer);
+            
+            const gridDiv = document.createElement('div');
+            gridDiv.className = 'job-grid';
+            
+            jobs.forEach(job => {
+                activeJobs.push(job);
+
+                const label = document.createElement('label');
+                label.className = 'job-item';
+                label.id = `label-${job}`;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = true;
+                checkbox.value = job;
+                
+                checkbox.addEventListener('change', function() {
+                    updateJobStatus(this.value, this.checked);
+                });
+                
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(job));
+                gridDiv.appendChild(label);
+            });
+
+            // 접고 펼치기 기능 (제목 영역만 클릭했을 때 토글)
+            titleDiv.onclick = () => {
+                const isHidden = gridDiv.style.display === 'none';
+                gridDiv.style.display = isHidden ? 'grid' : 'none';
+                titleDiv.querySelector('.arrow').innerText = isHidden ? '▼' : '▲';
+            };
+
+            // 전체 선택 클릭 시 작동
+            checkAllBtn.onclick = () => {
+                gridDiv.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    if (!cb.checked) {
+                        cb.checked = true;
+                        updateJobStatus(cb.value, true);
+                    }
+                });
+            };
+
+            // 전체 해제 클릭 시 작동
+            uncheckAllBtn.onclick = () => {
+                gridDiv.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    if (cb.checked) {
+                        cb.checked = false;
+                        updateJobStatus(cb.value, false);
+                    }
+                });
+            };
+
+            groupDiv.appendChild(headerDiv);
+            groupDiv.appendChild(gridDiv);
+            settingsContainer.appendChild(groupDiv);
+        }
+    }
+
+    function updateJobStatus(jobName, isChecked) {
+        const label = document.getElementById(`label-${jobName}`);
+        const drawBtn = document.getElementById('drawBtn');
+
+        if (isChecked) {
+            if (!activeJobs.includes(jobName)) activeJobs.push(jobName);
+            label.classList.remove('excluded');
+        } else {
+            activeJobs = activeJobs.filter(job => job !== jobName);
+            label.classList.add('excluded');
+        }
+
+        drawBtn.disabled = activeJobs.length === 0;
+        if(activeJobs.length === 0) {
+            document.getElementById('result').innerText = "직업을 선택해주세요!";
+            document.getElementById('dpsCard').style.display = "none";
+        } else if (document.getElementById('result').innerText === "직업을 선택해주세요!") {
+            document.getElementById('result').innerText = "? ? ?";
+        }
+    }
+
+    function showDpsInfo(jobName) {
+        const card = document.getElementById('dpsCard');
+        const info = dpsData[jobName];
+        
+        if (!info) {
+            card.style.display = "none";
+            return;
+        }
+
+        if (info.unrated) {
+            card.className = "dps-card unrated";
+            card.innerHTML = `<span class="dps-badge" style="background-color: ${info.bg}">순위: ${info.rank}</span><br><span style="margin-top:6px; display:inline-block; font-size:14px; color:#555;">⚠️ 이 직업은 현재 <b>DPS 미산정</b> 상태입니다.</span>`;
+        } else {
+            card.className = "dps-card";
+            card.innerHTML = `
+                <div>
+                    <span class="dps-badge" style="background-color: ${info.bg}">DPS 순위: ${info.rank}위</span>
+                    <span class="dps-ratio">배율: ${info.ratio}</span>
+                </div>
+            `;
+        }
+        card.style.display = "block";
+    }
+
+    function pickJob() {
+        if (activeJobs.length === 0) return;
+
+        const resultDiv = document.getElementById('result');
+        const drawBtn = document.getElementById('drawBtn');
+        const card = document.getElementById('dpsCard');
+        
+        drawBtn.disabled = true;
+        card.style.display = "none"; 
+        
+        let count = 0;
+        const interval = setInterval(() => {
+            const randomIdx = Math.floor(Math.random() * activeJobs.length);
+            resultDiv.innerText = activeJobs[randomIdx];
+            count++;
+            
+            if (count > 12) {
+                clearInterval(interval);
+                const finalIdx = Math.floor(Math.random() * activeJobs.length);
+                const selectedJob = activeJobs[finalIdx];
+                
+                resultDiv.innerText = selectedJob;
+                showDpsInfo(selectedJob); 
+                drawBtn.disabled = false;
+            }
+        }, 60);
+    }
+
+    initSettings();
+</script>
+
+</body>
+</html>
